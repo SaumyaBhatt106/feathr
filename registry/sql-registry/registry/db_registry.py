@@ -1,12 +1,15 @@
+import json
+import os
+
 from typing import Optional, Tuple, Union
 from uuid import UUID, uuid4
 from typing import List, Set, Dict
 from pydantic import UUID4
-from registry import Registry
-from registry import connect
-from registry.models import AnchorAttributes, AnchorDef, AnchorFeatureAttributes, AnchorFeatureDef, DerivedFeatureAttributes, DerivedFeatureDef, Edge, EntitiesAndRelations, Entity, EntityRef, EntityType, ProjectAttributes, ProjectDef, RelationshipType, SourceAttributes, SourceDef, _to_type, _to_uuid
-import json
-import os
+
+from .interface import Registry
+from .database import connect
+from .models import AnchorAttributes, AnchorDef, AnchorFeatureAttributes, AnchorFeatureDef, DerivedFeatureAttributes, DerivedFeatureDef, Edge, EntitiesAndRelations, Entity, EntityRef, EntityType, ProjectAttributes, ProjectDef, RelationshipType, SourceAttributes, SourceDef, _to_type, _to_uuid
+
 class ConflictError(Exception):
     pass
 
@@ -286,7 +289,7 @@ class DbRegistry(Registry):
                 r = self._fetch_helper(query)
             else:
                 c.execute(f'''select entity_id, entity_type, attributes from entities where qualified_name = %s''',
-                        definition.qualified_name)
+                        (definition.qualified_name,))
                 r = c.fetchall()
             if r:
                 if len(r) > 1:
@@ -321,7 +324,7 @@ class DbRegistry(Registry):
                 r = self._fetch_helper(query)
             else:
                 c.execute(f'''select entity_id, entity_type, attributes from entities where qualified_name = %s''',
-                        definition.qualified_name)
+                        (definition.qualified_name,))
                 r = c.fetchall()
             if r:
                 if len(r) > 1:
@@ -370,7 +373,7 @@ class DbRegistry(Registry):
                 r = self._fetch_helper(query)
             else:
                 c.execute(f'''select entity_id, entity_type, attributes from entities where qualified_name = %s''',
-                        definition.qualified_name)
+                        (definition.qualified_name,))
                 r = c.fetchall()
             if r:
                 if len(r) > 1:
@@ -432,7 +435,7 @@ class DbRegistry(Registry):
                 r = self._fetch_helper(query)
             else:
                 c.execute(f'''select entity_id, entity_type, attributes from entities where qualified_name = %s''',
-                        definition.qualified_name)
+                        (definition.qualified_name,))
                 r = c.fetchall()
             if r:
                 if len(r) > 1:
@@ -488,7 +491,7 @@ class DbRegistry(Registry):
                 r = self._fetch_helper(query)
             else:
                 c.execute(f'''select entity_id, entity_type, attributes from entities where qualified_name = %s''',
-                        definition.qualified_name)
+                        (definition.qualified_name,))
                 r = c.fetchall()
             if r:
                 if len(r) > 1:
@@ -569,14 +572,24 @@ class DbRegistry(Registry):
             query = db.insert(self.edges_table).values(edge_id= str(uuid4()), from_id=str(from_id), to_id=str(to_id), conn_type =type.name)
             self.connection.execute(query)
         else:
-            sql = r'''
-            IF NOT EXISTS (SELECT 1 FROM edges WHERE from_id=%(from_id)s and to_id=%(to_id)s and conn_type=%(type)s)
-                    BEGIN
-                        INSERT INTO edges
-                        (edge_id, from_id, to_id, conn_type)
-                        values
-                        (%(edge_id)s, %(from_id)s, %(to_id)s, %(type)s)
-                    END'''
+            sql = ""
+            if self.conn._is_sqlalchemy_supported:
+                sql = r'''
+                INSERT INTO edges (edge_id, from_id, to_id, conn_type)
+                SELECT %(edge_id)s, %(from_id)s, %(to_id)s, %(type)s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM edges WHERE from_id = %(from_id)s AND to_id = %(to_id)s AND conn_type = %(type)s
+                );
+                '''
+            else:
+                sql = r'''
+                IF NOT EXISTS (SELECT 1 FROM edges WHERE from_id=%(from_id)s and to_id=%(to_id)s and conn_type=%(type)s)
+                        BEGIN
+                            INSERT INTO edges
+                            (edge_id, from_id, to_id, conn_type)
+                            values
+                            (%(edge_id)s, %(from_id)s, %(to_id)s, %(type)s)
+                        END'''
             cursor.execute(sql, {
                 "edge_id": str(uuid4()),
                 "from_id": str(from_id),

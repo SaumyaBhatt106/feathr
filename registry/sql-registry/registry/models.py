@@ -1,10 +1,10 @@
+import json
+import re
+
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
-import json
-import re
-
 
 def to_snake(d, level: int = 0):
     """

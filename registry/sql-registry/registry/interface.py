@@ -1,10 +1,8 @@
-from abc import ABC, abstractclassmethod, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Union, List, Dict
 from uuid import UUID
-from registry.database import DbConnection
 
-from registry.models import *
-
+from .models import *
 
 class Registry(ABC):
     @abstractmethod

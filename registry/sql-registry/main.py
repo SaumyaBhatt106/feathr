@@ -1,22 +1,22 @@
 import os
 import traceback
+
 from typing import Optional, Dict, List
-from uuid import UUID
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
-from registry import *
-from registry.db_registry import DbRegistry, ConflictError
-from registry.models import AnchorDef, AnchorFeatureDef, DerivedFeatureDef, EntityType, ProjectDef, SourceDef, to_snake
+from .registry import *
+from .registry.db_registry import DbRegistry, ConflictError
+from .registry.models import AnchorDef, AnchorFeatureDef, DerivedFeatureDef, EntityType, ProjectDef, SourceDef, to_snake
 
-rp = "/"
-try:
-    rp = os.environ["API_BASE"]
-    if rp[0] != '/':
-        rp = '/' + rp
-except:
-    pass
-print("Using API BASE: ", rp)
+# rp = "/"
+# try:
+#     rp = os.environ["API_BASE"]
+#     if rp[0] != '/':
+#         rp = '/' + rp
+# except:
+#     pass
+# print("Using API BASE: ", rp)
 
 registry = DbRegistry()
 app = FastAPI()
@@ -193,4 +193,5 @@ def new_project_derived_feature(project: str, definition: Dict) -> Dict:
     return {"guid": str(id)}
 
 
-app.include_router(prefix=rp, router=router)
+# app.include_router(prefix=rp, router=router)
+app.include_router(router=router)
