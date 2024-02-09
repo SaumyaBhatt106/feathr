@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from rbac.models import UserRole
-
+from .models import UserRole
 
 class RBAC(ABC):
     @abstractmethod

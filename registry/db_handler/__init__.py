@@ -3,8 +3,8 @@ import os
 from .enums import Provider
 from .connection_providers import SQLiteConnection, MssqlConnection, PostgresConnection
 
-def provide_db_connection():
-    match os.environ['DB_PROVIDER']:
+def provide_db_connection(provider_env):
+    match provider_env:
 
         case Provider.SQLITE.value:
             return SQLiteConnection

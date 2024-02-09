@@ -2,10 +2,10 @@ import json
 from typing import Optional
 import requests
 from fastapi import APIRouter, Depends, Response
-from rbac import config
-from rbac.access import *
-from rbac.db_rbac import DbRBAC
-from rbac.models import User
+from .rbac import config
+from .rbac.access import *
+from .rbac.db_rbac import DbRBAC
+from .rbac.models import User
 
 router = APIRouter()
 rbac = DbRBAC()

@@ -1,3 +1,4 @@
+import os
 import pymssql
 import sqlite3
 import logging
@@ -7,7 +8,7 @@ import threading
 from typing import List, Dict
 from .connection_parser import parse_mssql_connection, parse_postgres_connection
 from .utils import flatten_tuple
-from .db_connection_abstract import DbConnection
+from .db_connection_interface import DbConnection
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 
@@ -16,6 +17,7 @@ if platform.system().lower().startswith('dar'):
     import _scproxy
 
 psycopg2.extras.register_uuid()
+REGISTRY_DB_URL = os.environ["CONNECTION_STR"]
 
 class SQLiteConnection(DbConnection):
 
@@ -33,6 +35,10 @@ class SQLiteConnection(DbConnection):
         return SQLiteConnection()
 
     def query(self, sql: str, *args, **kwargs) -> List[Dict]:
+        # this is just to implement the abstract method.
+        pass
+
+    def update(self, sql: str, *args, **kwargs) -> List[Dict]:
         # this is just to implement the abstract method.
         pass
 
@@ -109,7 +115,7 @@ class MssqlConnection(DbConnection):
         self._is_sqlalchemy_supported = False
 
     def connect(autocommit = True):
-        params = parse_mssql_connection()
+        params = parse_mssql_connection(REGISTRY_DB_URL)
         if not autocommit:
             params["autocommit"] = False
         return MssqlConnection(params)
@@ -128,6 +134,16 @@ class MssqlConnection(DbConnection):
             except pymssql.OperationalError as e:
                 logging.warning(f"Database error --- {e}")
                 pass
+
+    def update(self, sql: str, *args, **kwargs):
+        try:
+            with self.mutex:
+                c = self.conn.cursor(as_dict=True)
+                c.execute(sql, *args, **kwargs)
+                self.conn.commit()
+                return True
+        except pymssql.OperationalError as e:
+            logging.warning(f"Database error --- {e}")
 
     @contextmanager
     def transaction(self):
@@ -187,7 +203,7 @@ class PostgresConnection(DbConnection):
         self._is_sqlalchemy_supported = True
 
     def connect(autocommit=True):
-        params = parse_postgres_connection()
+        params = parse_postgres_connection(REGISTRY_DB_URL)
         if not autocommit:
             params["autocommit"] = False
         return PostgresConnection(params)
@@ -197,15 +213,23 @@ class PostgresConnection(DbConnection):
         Make SQL query and return result
         """
         logging.debug(f"SQL: `{sql}`")
-        retry = 0
-        while True:
-            try:
-                with self.mutex:
-                    c = self.conn.cursor(cursor_factory=RealDictCursor)
-                    c.execute(sql, flatten_tuple(args), **kwargs)
-                    return c.fetchall()
-            except psycopg2.OperationalError as e:
-                logging.error(f"Database error --- {e}")
+        try:
+            with self.mutex:
+                c = self.conn.cursor(cursor_factory=RealDictCursor)
+                c.execute(sql, flatten_tuple(args), **kwargs)
+                return c.fetchall()
+        except psycopg2.OperationalError as e:
+            logging.error(f"Database error --- {e}")
+
+    def update(self, sql: str, *args, **kwargs) -> List[Dict]:
+        logging.debug(f"SQL: `{sql}`")
+        try:
+            with self.mutex:
+                c = self.conn.cursor(cursor_factory=RealDictCursor)
+                c.execute(sql, flatten_tuple(args), **kwargs)
+                self.conn.commit()
+        except psycopg2.OperationalError as e:
+            logging.error(f"Database error --- {e}")
 
     @contextmanager
     def transaction(self):

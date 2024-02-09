@@ -1,15 +1,14 @@
+import json
+import requests
+
 from time import sleep
 from typing import Any, Union
 from uuid import UUID
 from fastapi import Depends, HTTPException, status
-from rbac.db_rbac import DbRBAC
-
-from rbac.models import AccessType, User, UserAccess,_to_uuid
-from rbac.auth import authorize
-
-import json
-import requests
-from rbac import config
+from .db_rbac import DbRBAC
+from .models import AccessType, User, UserAccess,_to_uuid
+from .auth import get_authorize
+from .config import RBAC_REGISTRY_URL
 
 """
 All Access Validation Functions. Used as FastAPI Dependencies.
@@ -30,19 +29,19 @@ class BadRequest(HTTPException):
                          detail=detail, headers={"WWW-Authenticate": "Bearer"})
 
 
-def get_user(user: User = Depends(authorize)) -> User:
+def get_user(user: User = Depends(get_authorize)) -> User:
     return user
 
 
-def project_read_access(project: str, user: User = Depends(authorize)) -> UserAccess:
+def project_read_access(project: str, user: User = Depends(get_authorize)) -> UserAccess:
     return _project_access(project, user, AccessType.READ)
 
 
-def project_write_access(project: str, user: User = Depends(authorize)) -> UserAccess:
+def project_write_access(project: str, user: User = Depends(get_authorize)) -> UserAccess:
     return _project_access(project, user, AccessType.WRITE)
 
 
-def project_manage_access(project: str, user: User = Depends(authorize)) -> UserAccess:
+def project_manage_access(project: str, user: User = Depends(get_authorize)) -> UserAccess:
     return _project_access(project, user, AccessType.MANAGE)
 
 
@@ -55,7 +54,7 @@ def _project_access(project: str, user: User, access: str) -> UserAccess:
             f"{access} access for project {project} is required for user {user.username}")
 
 
-def global_admin_access(user: User = Depends(authorize)):
+def global_admin_access(user: User = Depends(get_authorize)):
     if user.username in rbac.get_global_admin_users():
         return user
     else:
@@ -91,7 +90,7 @@ def _get_project_name(id_or_name: Union[str, UUID]):
                     count += 1
         return rbac.projects_ids[id_or_name]
     except KeyError:
-        raise BadRequest(f"Project Id {id_or_name} not found in Registry {config.RBAC_REGISTRY_URL}. Please check if the project exists or retry later.")
+        raise BadRequest(f"Project Id {id_or_name} not found in Registry {RBAC_REGISTRY_URL}. Please check if the project exists or retry later.")
     except ValueError:
         # It is a name
         pass
@@ -101,7 +100,7 @@ def _get_project_name(id_or_name: Union[str, UUID]):
 def _get_projects_ids():
     """cache all project ids from registry api"""
     try:
-        response = requests.get(url=f"{config.RBAC_REGISTRY_URL}/projects-ids").content.decode('utf-8')
+        response = requests.get(url=f"{RBAC_REGISTRY_URL}/projects-ids").content.decode('utf-8')
         rbac.projects_ids = json.loads(response)
     except Exception as e:
-        raise BadRequest(f"Failed to get projects ids from Registry {config.RBAC_REGISTRY_URL}, {e}")
+        raise BadRequest(f"Failed to get projects ids from Registry {RBAC_REGISTRY_URL}, {e}")

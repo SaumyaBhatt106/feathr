@@ -1,11 +1,13 @@
-from fastapi import HTTPException, status
-from typing import Any
-from rbac import config
-from rbac.database import connect
-from rbac.models import AccessType, UserRole, RoleType, SUPER_ADMIN_SCOPE, _to_uuid
-from rbac.interface import RBAC
 import os
 import logging
+
+from fastapi import HTTPException, status
+from typing import Any
+
+from .config import RBAC_CONNECTION_STR
+from .database import connect
+from .models import AccessType, UserRole, RoleType, SUPER_ADMIN_SCOPE, _to_uuid
+from .interface import RBAC
 
 class BadRequest(HTTPException):
     def __init__(self, detail: Any = None) -> None:
@@ -16,7 +18,7 @@ class BadRequest(HTTPException):
 class DbRBAC(RBAC):
     def __init__(self):
         if not os.environ.get("RBAC_CONNECTION_STR"):
-            os.environ["RBAC_CONNECTION_STR"] = config.RBAC_CONNECTION_STR
+            os.environ["RBAC_CONNECTION_STR"] = RBAC_CONNECTION_STR
         self.conn = connect()
         self.get_userroles()
         self.projects_ids = {}
@@ -117,12 +119,21 @@ class DbRBAC(RBAC):
     def delete_userrole(self, project_name: str, user_name: str, role_name: str, delete_reason: str, by: str):
         """mark existing user role relationship as deleted with reason
         """
-        query = fr"""UPDATE userroles SET
-            [delete_by] = '%s',
-            [delete_reason] = '%s',
-            [delete_time] = getutcdate()
-            WHERE [user_name] = '%s' and [project_name] = '%s' and [role_name] = '%s'
-            and [delete_time] is null"""
+        query = ""
+        if self.conn._is_sqlalchemy_supported:
+            query = fr"""UPDATE userroles SET
+                delete_by = '%s',
+                delete_reason = '%s',
+                delete_time = CURRENT_TIMESTAMP
+                WHERE user_name = '%s' and project_name = '%s' and role_name = '%s'
+                and delete_time is null;"""
+        else:
+            query = fr"""UPDATE userroles SET
+                [delete_by] = '%s',
+                [delete_reason] = '%s',
+                [delete_time] = getutcdate()
+                WHERE [user_name] = '%s' and [project_name] = '%s' and [role_name] = '%s'
+                and [delete_time] is null"""
         self.conn.update(query % (by, delete_reason.replace("'", "''"),
                          user_name.lower(), project_name.lower(), role_name.lower()))
         logging.info(
@@ -156,8 +167,13 @@ class DbRBAC(RBAC):
         """
         create_by = "system"
         create_reason = "creator of project, get admin by default."
-        query = fr"""insert into userroles (project_name, user_name, role_name, create_by, create_reason, create_time)
-            values ('%s','%s','%s','%s','%s', getutcdate())"""
+        query = ""
+        if self.conn._is_sqlalchemy_supported:
+            query = fr"""insert into userroles (project_name, user_name, role_name, create_by, create_reason, create_time)
+            values ('%s','%s','%s','%s','%s', CURRENT_TIMESTAMP)"""
+        else:
+            query = fr"""insert into userroles (project_name, user_name, role_name, create_by, create_reason, create_time)
+                values ('%s','%s','%s','%s','%s', getutcdate())"""
         self.conn.update(query % (project_name.lower(), creator_name.lower(), RoleType.ADMIN.value, create_by, create_reason))
         logging.info(f"Userrole initialized with query: {query%(project_name, creator_name, RoleType.ADMIN.value, create_by, create_reason)}")
         return self.get_userroles()

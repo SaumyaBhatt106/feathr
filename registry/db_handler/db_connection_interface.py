@@ -17,6 +17,10 @@ class DbConnection(ABC):
         pass
 
     @abstractmethod
+    def update(self, sql: str, *args, **kwargs) -> List[Dict]:
+        pass
+
+    @abstractmethod
     def transaction(self) -> any:
         pass
 

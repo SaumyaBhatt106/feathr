@@ -2,10 +2,8 @@ import os
 
 from urllib.parse import urlparse
 
-CONNECTION_STR = os.environ["CONNECTION_STR"]
-
-def parse_mssql_connection():
-    parts = dict([p.strip().split("=", 1) for p in CONNECTION_STR.split(";") if len(p.strip()) > 0])
+def parse_mssql_connection(connection_str):
+    parts = dict([p.strip().split("=", 1) for p in connection_str.split(";") if len(p.strip()) > 0])
     server = parts["Server"].split(":")[1].split(",")[0]
     return {
         "host": server,
@@ -15,8 +13,8 @@ def parse_mssql_connection():
         # "charset": "utf-8",   ## For unknown reason this causes connection failure
     }
 
-def parse_postgres_connection():
-    parsed_url = urlparse(CONNECTION_STR)
+def parse_postgres_connection(connection_str):
+    parsed_url = urlparse(connection_str)
     return {
         "user": parsed_url.username,
         "password": parsed_url.password,

@@ -2,14 +2,15 @@ import base64
 import logging
 import requests
 import rsa
+import jwt
+
+from jwt.exceptions import ExpiredSignatureError, PyJWKError
 from typing import Any, Mapping, Optional
 from fastapi import HTTPException, Request, status
 from fastapi.security import OAuth2AuthorizationCodeBearer
-import jwt
-from jwt.exceptions import ExpiredSignatureError, PyJWKError
 
-from rbac import config
-from rbac.models import User, UserType
+from .config import RBAC_AAD_INSTANCE, RBAC_AAD_TENANT_ID, RBAC_API_AUDIENCE, DUMMY_AUTH
+from .models import User, UserType
 
 
 log = logging.getLogger()
@@ -26,7 +27,7 @@ class AzureADAuth(OAuth2AuthorizationCodeBearer):
     # cached AAD jwt keys
     aad_jwt_keys_cache: dict = {}
 
-    def __init__(self, aad_instance: str = config.RBAC_AAD_INSTANCE, aad_tenant: str = config.RBAC_AAD_TENANT_ID):
+    def __init__(self, aad_instance: str = RBAC_AAD_INSTANCE, aad_tenant: str = RBAC_AAD_TENANT_ID):
         self.base_auth_url: str = f"{aad_instance}/{aad_tenant}"
         super(AzureADAuth, self).__init__(
             authorizationUrl=f"{self.base_auth_url}/oauth2/v2.0/authorize",
@@ -147,7 +148,7 @@ class AzureADAuth(OAuth2AuthorizationCodeBearer):
         key = self._get_token_key(key_id)
         try:
             decode = jwt.decode(token, key=key, algorithms=[
-                                'RS256'], audience=["https://management.azure.com", config.RBAC_API_AUDIENCE])
+                                'RS256'], audience=["https://management.azure.com", RBAC_API_AUDIENCE])
             return decode
         except ExpiredSignatureError as e:
             raise InvalidAuthorization(f'The token signature has expired: {e}')
@@ -157,4 +158,37 @@ class AzureADAuth(OAuth2AuthorizationCodeBearer):
             raise InvalidAuthorization(f'Unable to decode token, error: {e}')
 
 
-authorize = AzureADAuth()
+class DummyAuth():
+
+
+    def __init__(self):
+        user = DummyAuth._get_dummy_user()
+        self.id = user.id
+        self.name = user.name
+        self.username = user.username
+        self.type = user.type
+        self.roles = user.roles
+
+
+    async def __call__(self, request: Request) -> User:
+        # bearer_token: str = request.headers.get("authorization")
+        # if bearer_token:
+        return DummyAuth._get_dummy_user()
+        # else:
+        #     raise InvalidAuthorization(
+        #         detail='No authorization token was found')
+    
+    def _get_dummy_user() -> User:
+        return User(
+                id="dummy_user_id",
+                name="dummy_user_name",
+                username="dummy_username",
+                type=UserType.AAD_APP,
+                roles=[]
+        )
+
+def get_authorize():
+    if DUMMY_AUTH == 'true':
+        return DummyAuth()
+    else:
+        return AzureADAuth()
