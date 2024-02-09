@@ -10,3 +10,12 @@ CREATE TABLE IF NOT EXISTS userroles (
     delete_reason VARCHAR(50),
     delete_time TIMESTAMP
 );
+
+INSERT INTO userroles (project_name, user_name, role_name, create_by, create_reason, create_time) 
+SELECT 'global', 'saumi', 'admin', 'saumya.bhatt@theporter.in', 'Initialize First Global Admin', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (
+    SELECT 1 FROM userroles 
+    WHERE project_name = 'global' 
+    AND user_name = 'saumi' 
+    AND role_name = 'admin'
+);

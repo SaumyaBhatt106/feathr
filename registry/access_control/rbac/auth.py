@@ -162,7 +162,7 @@ class DummyAuth():
 
 
     def __init__(self):
-        user = DummyAuth._get_dummy_user()
+        user = DummyAuth._get_admin_user()
         self.id = user.id
         self.name = user.name
         self.username = user.username
@@ -173,18 +173,18 @@ class DummyAuth():
     async def __call__(self, request: Request) -> User:
         # bearer_token: str = request.headers.get("authorization")
         # if bearer_token:
-        return DummyAuth._get_dummy_user()
+        return DummyAuth._get_admin_user()
         # else:
         #     raise InvalidAuthorization(
         #         detail='No authorization token was found')
     
-    def _get_dummy_user() -> User:
+    def _get_admin_user() -> User:
         return User(
-                id="dummy_user_id",
+                id="1",
                 name="dummy_user_name",
-                username="dummy_username",
+                username="saumi",
                 type=UserType.AAD_APP,
-                roles=[]
+                roles=["read", "write", "manage"]
         )
 
 def get_authorize():

@@ -19,7 +19,7 @@ const getApiBaseUrl = () => {
   if (!endpoint || endpoint === '') {
     endpoint = window.location.protocol + '//' + window.location.host
   }
-  return endpoint + '/api/v1'
+  return endpoint
 }
 
 export const fetchDataSources = async (project: string) => {
