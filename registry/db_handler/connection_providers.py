@@ -216,7 +216,11 @@ class PostgresConnection(DbConnection):
         try:
             with self.mutex:
                 c = self.conn.cursor(cursor_factory=RealDictCursor)
-                c.execute(sql, flatten_tuple(args), **kwargs)
+                try:
+                    c.execute(sql, flatten_tuple(args), **kwargs)
+                except Exception as e:
+                    print('Args passed as single tupple. Error --- ',e)
+                    c.execute(sql, args[0], **kwargs)
                 return c.fetchall()
         except psycopg2.OperationalError as e:
             logging.error(f"Database error --- {e}")
